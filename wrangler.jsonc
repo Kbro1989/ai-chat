@@ -1,29 +1,25 @@
 {
+  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ai-chat",
-  "version": "1.0.0",
-  "description": "Cloudflare Worker AI chat app with persistent D1 memory and node compatibility",
   "main": "src/index.ts",
-  "scripts": {
-    "dev": "wrangler dev --remote",
-    "build": "tsc",
-    "type-check": "tsc --noEmit",
-    "deploy": "wrangler deploy",
-    "preview": "wrangler pages dev ./public",
-    "format": "prettier --write .",
-    "lint": "eslint 'src/**/*.{ts,tsx,js,jsx}'",
-    "clean": "rm -rf dist node_modules && npm install",
-    "start": "npm run dev"
+  "compatibility_date": "2025-10-09",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "type": "javascript",
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./public"
   },
-  "author": "pick-of-gods",
-  "license": "MIT",
-  "devDependencies": {
-    "typescript": "^5.6.3",
-    "@cloudflare/workers-types": "^4.2025.0",
-    "@types/node": "^22.9.0",
-    "prettier": "^3.3.3",
-    "eslint": "^9.10.0",
-    "@typescript-eslint/parser": "^7.5.0",
-    "@typescript-eslint/eslint-plugin": "^7.5.0"
+  "observability": {
+    "enabled": true
   },
-  "dependencies": {}
+  "ai": {
+    "binding": "AI"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "openapi-template-db"
+    }
+  ],
+  "upload_source_maps": true
 }
