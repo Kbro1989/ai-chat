@@ -1,94 +1,96 @@
-const chatMessages = document.getElementById("chat-messages");
-const userInput = document.getElementById("user-input");
-const sendButton = document.getElementById("send-button");
-const typingIndicator = document.getElementById("typing-indicator");
+const chatForm = document.getElementById("chat-form");
+const chatInput = document.getElementById("chat-input");
+const chatContainer = document.getElementById("chat-container");
+const tabsContainer = document.getElementById("tabs-container");
 
-let isProcessing = false;
+let currentSession = "default"; // Active conversation tab
+const sessions = {}; // { sessionId: [messages] }
 
-// Auto-resize textarea
-userInput.addEventListener("input", function () {
-  this.style.height = "auto";
-  this.style.height = this.scrollHeight + "px";
-});
+// Utility to render messages
+function renderMessages(sessionId) {
+  chatContainer.innerHTML = "";
+  const messages = sessions[sessionId] || [];
+  messages.forEach((msg) => {
+    const div = document.createElement("div");
+    div.className = msg.role;
+    div.textContent = msg.content;
+    chatContainer.appendChild(div);
+  });
+}
 
-userInput.addEventListener("keydown", function (e) {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
+// Switch tab
+function switchTab(sessionId) {
+  currentSession = sessionId;
+  renderMessages(currentSession);
+}
+
+// Create a new tab
+function createTab(sessionId) {
+  const button = document.createElement("button");
+  button.textContent = sessionId;
+  button.onclick = () => switchTab(sessionId);
+  tabsContainer.appendChild(button);
+  sessions[sessionId] = [];
+  switchTab(sessionId);
+}
+
+// Initialize default tab
+createTab("default");
+
+// Fetch messages from server for a session
+async function loadSessionMessages(sessionId) {
+  const res = await fetch(`/api/history?sessionId=${sessionId}`);
+  if (res.ok) {
+    const data = await res.json();
+    sessions[sessionId] = data.messages;
+    renderMessages(sessionId);
   }
-});
+}
 
-sendButton.addEventListener("click", sendMessage);
+// Send a message
+chatForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const content = chatInput.value.trim();
+  if (!content) return;
 
-// Fetch chat history on load
-window.addEventListener("load", async () => {
-  try {
-    const res = await fetch("/api/history");
-    if (!res.ok) return;
-    const history = await res.json();
-    history.forEach(msg => addMessageToChat(msg.role, msg.content));
-  } catch (e) {
-    console.error("Failed to load history:", e);
-  }
-});
+  const message = { role: "user", content };
+  sessions[currentSession].push(message);
+  renderMessages(currentSession);
 
-async function sendMessage() {
-  const message = userInput.value.trim();
-  if (!message || isProcessing) return;
+  chatInput.value = "";
 
-  isProcessing = true;
-  userInput.disabled = true;
-  sendButton.disabled = true;
+  // Send to backend
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: sessions[currentSession], sessionId: currentSession }),
+  });
 
-  addMessageToChat("user", message);
-  userInput.value = "";
-  userInput.style.height = "auto";
-  typingIndicator.classList.add("visible");
-
-  try {
-    const assistantMessageEl = document.createElement("div");
-    assistantMessageEl.className = "message assistant-message";
-    assistantMessageEl.innerHTML = "<p></p>";
-    chatMessages.appendChild(assistantMessageEl);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: [{ role: "user", content: message }] }),
-    });
-
-    if (!response.ok) throw new Error("Failed to get response");
-
-    const reader = response.body.getReader();
+  if (res.ok) {
+    // Stream or JSON response
+    const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    let responseText = "";
+    let assistantText = "";
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      responseText += chunk;
-      assistantMessageEl.querySelector("p").textContent = responseText;
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      const chunk = decoder.decode(value);
+      assistantText += chunk;
+      // Optional: render streaming
+      renderMessages(currentSession);
+      const lastMsg = { role: "assistant", content: assistantText };
+      sessions[currentSession][sessions[currentSession].length - 1] = lastMsg;
     }
 
-  } catch (error) {
-    console.error("Error:", error);
-    addMessageToChat("assistant", "Error processing your request.");
-  } finally {
-    typingIndicator.classList.remove("visible");
-    isProcessing = false;
-    userInput.disabled = false;
-    sendButton.disabled = false;
-    userInput.focus();
+    // Save final assistant message
+    sessions[currentSession].push({ role: "assistant", content: assistantText });
+    renderMessages(currentSession);
   }
-}
+});
 
-function addMessageToChat(role, content) {
-  const msgEl = document.createElement("div");
-  msgEl.className = `message ${role}-message`;
-  msgEl.innerHTML = `<p>${content}</p>`;
-  chatMessages.appendChild(msgEl);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-}
+// Add a new tab dynamically
+document.getElementById("new-tab-btn").addEventListener("click", () => {
+  const tabName = prompt("Enter tab/session name:");
+  if (tabName && !sessions[tabName]) createTab(tabName);
+});
