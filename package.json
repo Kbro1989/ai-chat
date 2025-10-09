@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "build": "tsc",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "clean": "rm -rf node_modules .wrangler dist && npm install"
   },
   "author": "pick-of-gods",
   "license": "MIT",
