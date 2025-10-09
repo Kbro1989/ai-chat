@@ -1,16 +1,13 @@
 /**
- * LLM Chat Application Template
+ * LLM Chat Worker with D1 persistence
  *
- * A simple chat application using Cloudflare Workers AI.
- * This template demonstrates how to implement an LLM-powered chat interface with
- * streaming responses using Server-Sent Events (SSE).
+ * Stores chat messages in a D1 database while still supporting Cloudflare Workers AI.
  *
  * @license MIT
  */
 import { Env, ChatMessage } from "./types";
 
-// Model ID for Workers AI model
-// https://developers.cloudflare.com/workers-ai/models/
+// Model ID for Workers AI
 const MODEL_ID = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
 // Default system prompt
@@ -18,82 +15,68 @@ const SYSTEM_PROMPT =
   "You are a helpful, friendly assistant. Provide concise and accurate responses.";
 
 export default {
-  /**
-   * Main request handler for the Worker
-   */
-  async fetch(
-    request: Request,
-    env: Env,
-    ctx: ExecutionContext,
-  ): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    // Handle static assets (frontend)
+    // Serve frontend
     if (url.pathname === "/" || !url.pathname.startsWith("/api/")) {
       return env.ASSETS.fetch(request);
     }
 
-    // API Routes
+    // Chat API
     if (url.pathname === "/api/chat") {
-      // Handle POST requests for chat
       if (request.method === "POST") {
         return handleChatRequest(request, env);
       }
-
-      // Method not allowed for other request types
       return new Response("Method not allowed", { status: 405 });
     }
 
-    // Handle 404 for unmatched routes
     return new Response("Not found", { status: 404 });
   },
 } satisfies ExportedHandler<Env>;
 
-/**
- * Handles chat API requests
- */
-async function handleChatRequest(
-  request: Request,
-  env: Env,
-): Promise<Response> {
+async function handleChatRequest(request: Request, env: Env): Promise<Response> {
   try {
-    // Parse JSON request body
-    const { messages = [] } = (await request.json()) as {
-      messages: ChatMessage[];
-    };
+    const { messages = [] } = (await request.json()) as { messages: ChatMessage[] };
 
-    // Add system prompt if not present
+    // Ensure system prompt exists
     if (!messages.some((msg) => msg.role === "system")) {
       messages.unshift({ role: "system", content: SYSTEM_PROMPT });
     }
 
-    const response = await env.AI.run(
+    // Save user messages to D1
+    for (const msg of messages) {
+      if (msg.role === "user") {
+        await env.DB.prepare(
+          `INSERT INTO chats (session_id, role, content) VALUES (?, ?, ?)`
+        ).bind("default-session", msg.role, msg.content).run();
+      }
+    }
+
+    // Call AI
+    const aiResponse = await env.AI.run(
       MODEL_ID,
-      {
-        messages,
-        max_tokens: 1024,
-      },
-      {
-        returnRawResponse: true,
-        // Uncomment to use AI Gateway
-        // gateway: {
-        //   id: "YOUR_GATEWAY_ID", // Replace with your AI Gateway ID
-        //   skipCache: false,      // Set to true to bypass cache
-        //   cacheTtl: 3600,        // Cache time-to-live in seconds
-        // },
-      },
+      { messages, max_tokens: 1024 },
+      { returnRawResponse: true }
     );
 
+    // Read AI output as text for D1 storage
+    const aiText = await aiResponse.text();
+
+    // Save assistant response to D1
+    await env.DB.prepare(
+      `INSERT INTO chats (session_id, role, content) VALUES (?, ?, ?)`
+    ).bind("default-session", "assistant", aiText).run();
+
     // Return streaming response
-    return response;
-  } catch (error) {
-    console.error("Error processing chat request:", error);
+    return new Response(aiText, {
+      headers: { "Content-Type": "text/plain" },
+    });
+  } catch (err) {
+    console.error(err);
     return new Response(
       JSON.stringify({ error: "Failed to process request" }),
-      {
-        status: 500,
-        headers: { "content-type": "application/json" },
-      },
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }
