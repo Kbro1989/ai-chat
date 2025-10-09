@@ -7327,4 +7327,16 @@ declare abstract class WorkflowInstance {
         type: string;
         payload: unknown;
     }): Promise<void>;
+}/// <reference types="@cloudflare/workers-types" />
+
+interface Env {
+  AI: any; // Workers AI binding
+  ASSETS: Fetcher; // Static assets binding
+  DB: D1Database; // D1 database
+}
+
+interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+  createdAt?: string;
 }
