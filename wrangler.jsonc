@@ -1,12 +1,10 @@
-/**
- * For more details on how to configure Wrangler, refer to:
- * https://developers.cloudflare.com/workers/wrangler/configuration/
- */ {
+{
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ai-chat",
   "main": "src/index.ts",
-  "compatibility_date": "2025-04-01",
+  "compatibility_date": "2025-10-09",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "type": "javascript",
   "assets": {
     "binding": "ASSETS",
     "directory": "./public"
@@ -17,5 +15,11 @@
   "ai": {
     "binding": "AI"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "openapi-template-db"
+    }
+  ],
   "upload_source_maps": true
 }
