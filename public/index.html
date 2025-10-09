@@ -1,140 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Neon AI Chat</title>
-<style>
-  body {
-    margin: 0;
-    font-family: 'Courier New', Courier, monospace;
-    background-color: #000;
-    color: #0f0;
-    overflow: hidden;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-
-  header {
-    padding: 1rem;
-    text-align: center;
-    border-bottom: 1px solid #0f0;
-    font-weight: bold;
-    letter-spacing: 1px;
-    text-shadow: 0 0 10px #0f0, 0 0 20px #0f0;
-  }
-
-  .chat-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .chat-messages {
-    flex: 1;
-    padding: 1rem;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .message {
-    max-width: 80%;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    white-space: pre-wrap;
-    font-size: 0.9rem;
-    line-height: 1.2rem;
-  }
-
-  .user-message {
-    background: rgba(0, 255, 0, 0.1);
-    align-self: flex-end;
-    text-align: right;
-    box-shadow: 0 0 5px #0f0;
-  }
-
-  .assistant-message {
-    background: rgba(0, 255, 0, 0.05);
-    align-self: flex-start;
-    box-shadow: 0 0 5px #0f0;
-  }
-
-  .typing-indicator {
-    display: none;
-    font-style: italic;
-    color: #0f0;
-    margin: 0.5rem 1rem;
-  }
-
-  .typing-indicator.visible {
-    display: block;
-  }
-
-  .message-input {
-    display: flex;
-    border-top: 1px solid #0f0;
-  }
-
-  #user-input {
-    flex: 1;
-    background: #000;
-    color: #0f0;
-    border: none;
-    padding: 0.75rem;
-    font-family: monospace;
-    font-size: 1rem;
-    outline: none;
-    resize: none;
-  }
-
-  #send-button {
-    padding: 0 1rem;
-    background: #0f0;
-    color: #000;
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
-    font-family: monospace;
-    transition: 0.2s;
-  }
-
-  #send-button:hover {
-    background: #0c0;
-  }
-
-  #send-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  /* Matrix animation effect */
-  @keyframes flicker {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-
-  .assistant-message p, .user-message p {
-    animation: flicker 1.5s infinite alternate;
-  }
-
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chat - Matrix Theme</title>
+  <link rel="stylesheet" href="chat.css">
 </head>
 <body>
-<header>0101010 Neon AI Chat</header>
-
-<div class="chat-container">
-  <div id="chat-messages" class="chat-messages"></div>
-  <div class="typing-indicator" id="typing-indicator">AI is thinking...</div>
-  <div class="message-input">
-    <textarea id="user-input" rows="1" placeholder="Type your message..."></textarea>
-    <button id="send-button">Send</button>
+  <canvas id="matrix-bg"></canvas>
+  <div class="chat-container">
+    <div id="chat-window" class="chat-window"></div>
+    <form id="chat-form" class="chat-form">
+      <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off" />
+      <button type="submit">Send</button>
+    </form>
   </div>
-</div>
-
-<script src="chat.js"></script>
+  <script src="chat.js"></script>
 </body>
 </html>
