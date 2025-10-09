@@ -1,7 +1,8 @@
 /**
  * For more details on how to configure Wrangler, refer to:
  * https://developers.cloudflare.com/workers/wrangler/configuration/
- */ {
+ */
+{
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ai-chat",
   "main": "src/index.ts",
@@ -17,5 +18,11 @@
   "ai": {
     "binding": "AI"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "openapi-template-db"
+    }
+  ],
   "upload_source_maps": true
 }
