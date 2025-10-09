@@ -1,96 +1,69 @@
+const chatWindow = document.getElementById("chat-window");
 const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
-const chatContainer = document.getElementById("chat-container");
-const tabsContainer = document.getElementById("tabs-container");
 
-let currentSession = "default"; // Active conversation tab
-const sessions = {}; // { sessionId: [messages] }
+let sessionId = "default"; // Change dynamically for tabs
 
-// Utility to render messages
-function renderMessages(sessionId) {
-  chatContainer.innerHTML = "";
-  const messages = sessions[sessionId] || [];
-  messages.forEach((msg) => {
-    const div = document.createElement("div");
-    div.className = msg.role;
-    div.textContent = msg.content;
-    chatContainer.appendChild(div);
-  });
-}
-
-// Switch tab
-function switchTab(sessionId) {
-  currentSession = sessionId;
-  renderMessages(currentSession);
-}
-
-// Create a new tab
-function createTab(sessionId) {
-  const button = document.createElement("button");
-  button.textContent = sessionId;
-  button.onclick = () => switchTab(sessionId);
-  tabsContainer.appendChild(button);
-  sessions[sessionId] = [];
-  switchTab(sessionId);
-}
-
-// Initialize default tab
-createTab("default");
-
-// Fetch messages from server for a session
-async function loadSessionMessages(sessionId) {
+async function fetchHistory() {
   const res = await fetch(`/api/history?sessionId=${sessionId}`);
-  if (res.ok) {
-    const data = await res.json();
-    sessions[sessionId] = data.messages;
-    renderMessages(sessionId);
-  }
+  const data = await res.json();
+  chatWindow.innerHTML = "";
+  data.messages.forEach(msg => appendMessage(msg.role, msg.content));
 }
 
-// Send a message
+function appendMessage(role, content) {
+  const div = document.createElement("div");
+  div.classList.add("message", role);
+  div.textContent = content;
+  chatWindow.appendChild(div);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
 chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const content = chatInput.value.trim();
-  if (!content) return;
-
-  const message = { role: "user", content };
-  sessions[currentSession].push(message);
-  renderMessages(currentSession);
-
+  const text = chatInput.value.trim();
+  if (!text) return;
+  appendMessage("user", text);
   chatInput.value = "";
 
-  // Send to backend
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: sessions[currentSession], sessionId: currentSession }),
+    body: JSON.stringify({ messages: [{ role: "user", content: text }], sessionId })
   });
 
-  if (res.ok) {
-    // Stream or JSON response
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let assistantText = "";
+  const aiText = await res.text();
+  appendMessage("assistant", aiText);
+});
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value);
-      assistantText += chunk;
-      // Optional: render streaming
-      renderMessages(currentSession);
-      const lastMsg = { role: "assistant", content: assistantText };
-      sessions[currentSession][sessions[currentSession].length - 1] = lastMsg;
+// Initial load
+fetchHistory();
+
+// Matrix background animation
+const canvas = document.getElementById("matrix-bg");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const letters = "0101010101010101010101010101010".split("");
+const fontSize = 16;
+const columns = canvas.width / fontSize;
+const drops = Array(Math.floor(columns)).fill(1);
+
+function draw() {
+  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#0f0";
+  ctx.font = fontSize + "px monospace";
+
+  for (let i = 0; i < drops.length; i++) {
+    const text = letters[Math.floor(Math.random() * letters.length)];
+    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+      drops[i] = 0;
     }
-
-    // Save final assistant message
-    sessions[currentSession].push({ role: "assistant", content: assistantText });
-    renderMessages(currentSession);
+    drops[i]++;
   }
-});
+}
 
-// Add a new tab dynamically
-document.getElementById("new-tab-btn").addEventListener("click", () => {
-  const tabName = prompt("Enter tab/session name:");
-  if (tabName && !sessions[tabName]) createTab(tabName);
-});
+setInterval(draw, 50);
