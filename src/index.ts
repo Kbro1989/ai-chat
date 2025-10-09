@@ -1,16 +1,6 @@
-/**
- * LLM Chat Application Template
- *
- * A simple chat application using Cloudflare Workers AI.
- * This template demonstrates how to implement an LLM-powered chat interface with
- * streaming responses using Server-Sent Events (SSE).
- *
- * @license MIT
- */
 import { Env, ChatMessage } from "./types";
 
-// Model ID for Workers AI model
-// https://developers.cloudflare.com/workers-ai/models/
+// Workers AI model
 const MODEL_ID = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
 // Default system prompt
@@ -18,82 +8,95 @@ const SYSTEM_PROMPT =
   "You are a helpful, friendly assistant. Provide concise and accurate responses.";
 
 export default {
-  /**
-   * Main request handler for the Worker
-   */
-  async fetch(
-    request: Request,
-    env: Env,
-    ctx: ExecutionContext,
-  ): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    // Handle static assets (frontend)
+    // Serve frontend assets
     if (url.pathname === "/" || !url.pathname.startsWith("/api/")) {
       return env.ASSETS.fetch(request);
     }
 
-    // API Routes
-    if (url.pathname === "/api/chat") {
-      // Handle POST requests for chat
-      if (request.method === "POST") {
-        return handleChatRequest(request, env);
-      }
-
-      // Method not allowed for other request types
-      return new Response("Method not allowed", { status: 405 });
+    // Chat API
+    if (url.pathname === "/api/chat" && request.method === "POST") {
+      return handleChatRequest(request, env);
     }
 
-    // Handle 404 for unmatched routes
+    // History API
+    if (url.pathname === "/api/history" && request.method === "GET") {
+      return handleHistoryRequest(env);
+    }
+
     return new Response("Not found", { status: 404 });
   },
 } satisfies ExportedHandler<Env>;
 
 /**
- * Handles chat API requests
+ * Handles chat messages
  */
-async function handleChatRequest(
-  request: Request,
-  env: Env,
-): Promise<Response> {
+async function handleChatRequest(request: Request, env: Env): Promise<Response> {
   try {
-    // Parse JSON request body
-    const { messages = [] } = (await request.json()) as {
-      messages: ChatMessage[];
-    };
+    const { messages = [] } = (await request.json()) as { messages: ChatMessage[] };
 
-    // Add system prompt if not present
+    // Add system prompt if missing
     if (!messages.some((msg) => msg.role === "system")) {
       messages.unshift({ role: "system", content: SYSTEM_PROMPT });
     }
 
-    const response = await env.AI.run(
+    // Call Workers AI
+    const aiResponse = await env.AI.run(
       MODEL_ID,
-      {
-        messages,
-        max_tokens: 1024,
-      },
-      {
-        returnRawResponse: true,
-        // Uncomment to use AI Gateway
-        // gateway: {
-        //   id: "YOUR_GATEWAY_ID", // Replace with your AI Gateway ID
-        //   skipCache: false,      // Set to true to bypass cache
-        //   cacheTtl: 3600,        // Cache time-to-live in seconds
-        // },
-      },
+      { messages, max_tokens: 1024 },
+      { returnRawResponse: true }
     );
 
-    // Return streaming response
-    return response;
-  } catch (error) {
-    console.error("Error processing chat request:", error);
-    return new Response(
-      JSON.stringify({ error: "Failed to process request" }),
-      {
-        status: 500,
-        headers: { "content-type": "application/json" },
-      },
-    );
+    // Save user and AI messages to D1
+    const lastUserMessage = messages[messages.length - 1];
+    const reader = aiResponse.body.getReader();
+    const decoder = new TextDecoder();
+    let assistantContent = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      assistantContent += decoder.decode(value, { stream: true });
+    }
+
+    // Insert both messages into D1
+    await env.DB.prepare(
+      `INSERT INTO chat_history (role, content, created_at) VALUES (?, ?, ?)`
+    ).bind("user", lastUserMessage.content, new Date().toISOString()).run();
+
+    await env.DB.prepare(
+      `INSERT INTO chat_history (role, content, created_at) VALUES (?, ?, ?)`
+    ).bind("assistant", assistantContent, new Date().toISOString()).run();
+
+    // Return the AI response as a streamed text response
+    return new Response(assistantContent, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  } catch (err) {
+    console.error("Chat request error:", err);
+    return new Response(JSON.stringify({ error: "Failed to process request" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}
+
+/**
+ * Returns chat history from D1
+ */
+async function handleHistoryRequest(env: Env): Promise<Response> {
+  try {
+    const result = await env.DB.prepare(`SELECT role, content FROM chat_history ORDER BY created_at ASC`).all();
+    return new Response(JSON.stringify(result.results ?? []), {
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("History request error:", err);
+    return new Response(JSON.stringify({ error: "Failed to fetch history" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
