@@ -6,9 +6,12 @@
   "scripts": {
     "dev": "wrangler dev",
     "build": "tsc",
-    "deploy": "wrangler deploy",
-    "clean": "rm -rf node_modules .wrangler dist && npm install"
+    "deploy": "wrangler deploy"
   },
   "author": "pick-of-gods",
   "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.4",
+    "@cloudflare/workers-types": "^4.2025.0"
+  }
 }
