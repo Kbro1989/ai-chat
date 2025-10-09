@@ -1,0 +1,87 @@
+/* Matrix neon theme */
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: "Courier New", monospace;
+  background: black;
+  color: #0f0;
+  overflow: hidden;
+}
+
+canvas#matrix-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chat-container {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  justify-content: flex-end;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.chat-window {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid #0f0;
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.message {
+  margin: 0.25rem 0;
+  animation: flicker 0.15s infinite;
+}
+
+.message.user::before {
+  content: "USER: ";
+  font-weight: bold;
+  color: #00ff00;
+}
+
+.message.assistant::before {
+  content: "AI: ";
+  font-weight: bold;
+  color: #00ffff;
+}
+
+.chat-form {
+  display: flex;
+}
+
+#chat-input {
+  flex: 1;
+  padding: 0.5rem;
+  background: black;
+  color: #0f0;
+  border: 1px solid #0f0;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  background: black;
+  color: #0f0;
+  border: 1px solid #0f0;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0f0;
+  color: black;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
